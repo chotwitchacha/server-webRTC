@@ -3,9 +3,9 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "com.example.meetingapp",
+      "package_name": "com.example.deeplink_webrtc",
       "sha256_cert_fingerprints": [
-        "REPLACE_WITH_YOUR_SHA256_FINGERPRINT"
+        " 0A:C7:71:6E:B7:D9:DD:78:5F:4D:59:DC:D8:E0:58:A1:66:9E:B7:99:91:3D:8A:0D:8F:5F:D9:C7:31:A7:3B:C0"
       ]
     }
   }
