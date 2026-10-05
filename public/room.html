@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="/static/style.css">
+  <title>ห้องประชุม {{ROOM_ID}}</title>
+</head>
+<body class="stage">
+
+  <!-- 1) ก่อนเข้าห้อง: ดูภาพตัวเอง เลือกเปิด/ปิดไมค์และกล้อง -->
+  <section id="prejoin" class="prejoin">
+    <div class="preview">
+      <video id="previewVideo" autoplay playsinline muted></video>
+      <p id="previewMsg" class="preview-msg" role="status"></p>
+    </div>
+
+    <div>
+      <p class="muted">ห้องประชุม</p>
+      <p class="room-code" data-room></p>
+
+      <div class="toggles">
+        <button class="toggle" id="preMicBtn" type="button"><span class="label">ไมค์เปิด</span></button>
+        <button class="toggle" id="preCamBtn" type="button"><span class="label">กล้องเปิด</span></button>
+      </div>
+
+      <button class="btn btn-primary" id="joinBtn" type="button" disabled>กำลังเปิดกล้อง...</button>
+      <p class="error" id="joinError" role="alert"></p>
+    </div>
+  </section>
+
+  <!-- 2) ระหว่างประชุม -->
+  <section id="meeting" class="meeting" hidden>
+    <header class="topbar">
+      <span class="room-small" data-room></span>
+      <span class="muted" id="status"></span>
+      <span class="spacer"></span>
+      <button class="btn btn-quiet" id="inviteBtn" type="button">เชิญ</button>
+    </header>
+
+    <main id="grid" class="grid" aria-label="วิดีโอผู้เข้าร่วม"></main>
+
+    <footer class="controls">
+      <button class="ctrl" id="micBtn" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/><line class="slash" x1="4" y1="4" x2="20" y2="20"/></svg>
+        <span class="label">ปิดไมค์</span>
+      </button>
+      <button class="ctrl" id="camBtn" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/><line class="slash" x1="3" y1="3" x2="21" y2="21"/></svg>
+        <span class="label">ปิดกล้อง</span>
+      </button>
+      <button class="ctrl" id="switchBtn" type="button" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M18 3v4h-4M6 21v-4h4"/></svg>
+        <span class="label">สลับกล้อง</span>
+      </button>
+      <button class="ctrl leave" id="leaveBtn" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 14.5c5-4.7 13-4.7 18 0l-2 3-4-1.2v-2.8a10 10 0 0 0-6 0v2.8L5 17.5z"/></svg>
+        <span class="label">ออก</span>
+      </button>
+    </footer>
+
+    <button class="btn btn-primary sound-btn" id="soundBtn" type="button" hidden>แตะเพื่อเปิดเสียง</button>
+  </section>
+
+  <!-- 3) ออกจากห้อง / เชื่อมต่อไม่ได้ -->
+  <section id="ended" class="ended" hidden>
+    <h1 id="endedTitle">คุณออกจากห้องแล้ว</h1>
+    <p class="muted" id="endedMsg"></p>
+    <div class="stack">
+      <button class="btn btn-primary" id="rejoinBtn" type="button">เข้าร่วมอีกครั้ง</button>
+      <a class="btn btn-quiet" href="/">กลับหน้าแรก</a>
+    </div>
+  </section>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="/static/meeting.js"></script>
+</body>
+</html>

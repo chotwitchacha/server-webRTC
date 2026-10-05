@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="/static/style.css">
+  <title>เข้าห้องประชุม</title>
+</head>
+<body>
+  <main class="page">
+    <div class="page-inner">
+      <h1>เข้าห้องประชุม</h1>
+      <p class="lead">กรอก Room ID ที่ได้รับ หรือสร้างห้องใหม่แล้วส่งลิงก์ให้คนที่จะคุยด้วย ใช้ได้ทั้งในเบราว์เซอร์และในแอป</p>
+
+      <form id="joinForm" class="stack" novalidate>
+        <label class="field-label" for="roomInput">Room ID</label>
+        <input id="roomInput" class="field" maxlength="32" placeholder="เช่น team-meeting"
+               autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go">
+        <p id="formError" class="error" role="alert"></p>
+        <button class="btn btn-primary" type="submit">เข้าร่วม</button>
+        <button class="btn btn-quiet" type="button" id="createBtn">สร้างห้องใหม่</button>
+      </form>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      var ROOM_ID_RE = /^[A-Za-z0-9_-]{1,32}$/;
+      var CHARS = 'abcdefghjkmnpqrstuvwxyz23456789';
+      var input = document.getElementById('roomInput');
+      var error = document.getElementById('formError');
+
+      function generateRoomId() {
+        var values = new Uint32Array(9);
+        crypto.getRandomValues(values);
+        var id = '';
+        for (var i = 0; i < 9; i++) {
+          if (i > 0 && i % 3 === 0) id += '-';
+          id += CHARS[values[i] % CHARS.length];
+        }
+        return id;
+      }
+
+      document.getElementById('joinForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var roomId = input.value.trim();
+        if (!roomId) { error.textContent = 'กรอก Room ID ก่อนเข้าร่วม'; input.focus(); return; }
+        if (!ROOM_ID_RE.test(roomId)) {
+          error.textContent = 'Room ID ใช้ได้เฉพาะ a-z, 0-9, - และ _ ไม่เกิน 32 ตัว';
+          input.focus();
+          return;
+        }
+        location.href = '/room/' + encodeURIComponent(roomId);
+      });
+
+      document.getElementById('createBtn').addEventListener('click', function () {
+        location.href = '/room/' + generateRoomId();
+      });
+    })();
+  </script>
+</body>
+</html>
