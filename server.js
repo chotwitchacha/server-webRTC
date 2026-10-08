@@ -17,6 +17,7 @@
 //   server -> others : {type:"peer-left", id}
 //   server -> client : {type:"error", message}
 
+
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -147,9 +148,44 @@ function clearActiveIfMatches(roomId, recId) {
 }
 
 // ---------------- Recording API ----------------
+const ROOM_ID_CHARS = 'abcdefghjkmnpqrstuvwxyz23456789';
+function generateRoomId() {
+  let id = '';
+  for (let i = 0; i < 9; i++) {
+    if (i > 0 && i % 3 === 0) id += '-';
+    id += ROOM_ID_CHARS[crypto.randomInt(ROOM_ID_CHARS.length)];
+  }
+  return id;
+}
+
+function publicBaseUrl(req) {
+  const proto = String(req.headers['x-forwarded-proto'] || 'http').split(',')[0].trim();
+  return proto + '://' + req.headers.host;
+}
+
 async function handleApi(req, res, url) {
   const p = url.pathname;
   let m;
+
+  // POST /api/rooms  body: {createKey}  -> สร้างห้อง + ลิงก์เชิญ (เฉพาะแอป Android)
+  // ห้องถูกสร้างทันที คนที่ได้รับลิงก์จึงเข้าห้องได้เลย แม้ผู้สร้างยังไม่ได้กดเริ่มประชุม
+  if (p === '/api/rooms' && req.method === 'POST') {
+    const body = await readJson(req);
+    if (!createKeyMatches(body.createKey)) throw db.httpError(403, 'ไม่มีสิทธิ์สร้างห้อง');
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const roomId = generateRoomId();
+      if (await db.roomExists(roomId)) continue;
+      const auth = await db.claimOrVerifyHost(roomId, null);
+      if (!auth.newToken) continue; // ชนกับห้องที่เพิ่งถูกสร้างพร้อมกัน
+      console.log(`[${roomId}] room created via API`);
+      return sendJson(res, 201, {
+        roomId,
+        hostToken: auth.newToken,
+        link: publicBaseUrl(req) + '/join/' + roomId,
+      });
+    }
+    throw db.httpError(500, 'สร้างห้องไม่สำเร็จ กรุณาลองใหม่');
+  }
 
   // /api/rooms/:roomId/status  -> ห้องนี้ถูกสร้างไว้แล้วหรือยัง (หน้าเว็บใช้เช็กก่อนเปิดกล้อง)
   if ((m = p.match(/^\/api\/rooms\/([^/]+)\/status$/)) && req.method === 'GET') {

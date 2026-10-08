@@ -214,3 +214,41 @@ body.stage .btn-quiet { border-color: #3A4A58; color: var(--stage-text); }
 @media (prefers-reduced-motion: reduce) {
   .toast { transition: none; }
 }
+
+/* ---------- บันทึกการประชุม ---------- */
+.rec-badge {
+  display: inline-flex; align-items: center; gap: .45rem;
+  padding: 2px 10px; border-radius: 999px;
+  background: rgba(229, 87, 79, .16); color: #FF8F88;
+  font-size: .85rem; font-weight: 500;
+}
+.rec-badge::before {
+  content: ""; width: 8px; height: 8px; border-radius: 50%; background: #E5574F;
+}
+
+.ctrl.rec svg circle { fill: none; }
+.ctrl.rec.recording { background: var(--danger); color: #fff; }
+.ctrl.rec.recording svg circle { fill: currentColor; }
+.ctrl[disabled] { opacity: .55; cursor: wait; }
+
+/* หน้ารายการไฟล์บันทึก */
+.page-top { align-items: flex-start; }
+.page-wide { max-width: 40rem; }
+.page-actions { margin-top: 2rem; }
+
+.rec-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.rec-item {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 1rem; row-gap: .15rem;
+  align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--line);
+}
+.rec-item .when { font-weight: 600; }
+.rec-item .meta { color: var(--muted); font-size: .9rem; grid-column: 1; }
+.rec-item .meta.warn { color: var(--danger); }
+.rec-item .actions { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: .5rem; }
+.rec-item .btn { min-height: 40px; padding: 0 .9rem; font-size: .92rem; }
+.btn-danger { color: var(--danger); }
+
+@media (max-width: 520px) {
+  .rec-item { grid-template-columns: 1fr; }
+  .rec-item .actions { grid-column: 1; grid-row: auto; margin-top: .6rem; }
+}

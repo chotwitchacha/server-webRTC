@@ -26,6 +26,8 @@
     grid: $('grid'), status: $('status'), inviteBtn: $('inviteBtn'),
     micBtn: $('micBtn'), camBtn: $('camBtn'), switchBtn: $('switchBtn'), leaveBtn: $('leaveBtn'),
     soundBtn: $('soundBtn'),
+    recordBtn: $('recordBtn'), recBadge: $('recBadge'), recordingsLink: $('recordingsLink'),
+    endedRecordingsLink: $('endedRecordingsLink'),
     endedTitle: $('endedTitle'), endedMsg: $('endedMsg'), rejoinBtn: $('rejoinBtn'),
     toast: $('toast'),
   };
@@ -43,6 +45,13 @@
     joined: false,
     leaving: false,
     wakeLock: null,
+    // ผู้สร้างห้อง + การบันทึก
+    selfId: null,
+    isHost: false,
+    hostToken: null,
+    recorder: null,
+    recordingActive: false,
+    recordingAvailable: false,
   };
 
   // ------------------------------------------------------------------
@@ -53,6 +62,7 @@
     return;
   }
   document.querySelectorAll('[data-room]').forEach((el) => { el.textContent = roomId; });
+  initHostToken();
 
   ui.preMic.addEventListener('click', () => setMic(!state.micOn));
   ui.preCam.addEventListener('click', () => setCam(!state.camOn));
@@ -64,6 +74,10 @@
   ui.inviteBtn.addEventListener('click', invite);
   ui.rejoinBtn.addEventListener('click', () => location.reload());
   ui.soundBtn.addEventListener('click', playAllRemote);
+  ui.recordBtn.addEventListener('click', toggleRecording);
+  window.addEventListener('beforeunload', (e) => {
+    if (state.recorder) { e.preventDefault(); e.returnValue = ''; } // เตือนก่อนปิดแท็บระหว่างบันทึก
+  });
   window.addEventListener('resize', relayout);
   window.addEventListener('pagehide', () => {
     if (state.joined && !state.leaving) {
@@ -75,7 +89,24 @@
     if (document.visibilityState === 'visible' && state.joined && !state.leaving) requestWakeLock();
   });
 
-  initPreview();
+  checkRoomThenPreview();
+
+  // คนที่ได้รับลิงก์เข้าได้เฉพาะห้องที่ผู้สร้างห้อง (แอป Android) สร้างไว้แล้ว
+  // เช็กก่อนเปิดกล้อง จะได้ไม่ขอสิทธิ์กล้อง/ไมค์โดยเปล่าประโยชน์
+  async function checkRoomThenPreview() {
+    try {
+      const r = await fetch('/api/rooms/' + encodeURIComponent(roomId) + '/status', { cache: 'no-store' });
+      const status = await r.json();
+      if (!status.exists && !state.hostToken) {
+        showEnded('ไม่พบห้องประชุมนี้', 'ตรวจสอบลิงก์อีกครั้ง หรือขอลิงก์ใหม่จากผู้สร้างห้อง');
+        ui.rejoinBtn.hidden = true;
+        return;
+      }
+    } catch (err) {
+      // เช็กไม่ได้ (เช่นเน็ตสะดุด) ให้ทำงานต่อ เซิร์ฟเวอร์จะตรวจซ้ำตอนเข้าห้องอยู่แล้ว
+    }
+    initPreview();
+  }
 
   // ------------------------------------------------------------------
   // กล้อง + ไมค์
@@ -249,7 +280,7 @@
     const ws = new WebSocket(proto + '//' + location.host);
     state.ws = ws;
 
-    ws.onopen = () => send({ type: 'join', room: roomId });
+    ws.onopen = () => send({ type: 'join', room: roomId, hostToken: state.hostToken || undefined });
     ws.onmessage = (e) => {
       let msg;
       try { msg = JSON.parse(e.data); } catch (err) { return; }
@@ -269,6 +300,7 @@
     if (state.leaving) return;
     switch (msg.type) {
       case 'joined':
+        applyJoined(msg);
         updateStatus();
         // เราเข้ามาทีหลัง -> เราเป็นคนส่ง Offer ไปหาทุกคน
         for (const peerId of msg.peers) await callPeer(peerId);
@@ -287,8 +319,14 @@
       case 'candidate':
         await onCandidate(msg.from, msg);
         break;
+      case 'recording':
+        if (msg.active && !state.recordingActive && !state.recorder) toast('การประชุมนี้กำลังถูกบันทึก');
+        state.recordingActive = !!msg.active;
+        syncRecordingUi();
+        break;
       case 'error':
-        leave('เข้าห้องไม่ได้', msg.message || '');
+        leave(msg.code === 'room-not-found' ? 'ไม่พบห้องประชุมนี้' : 'เข้าห้องไม่ได้', msg.message || '');
+        if (msg.code === 'room-not-found') ui.rejoinBtn.hidden = true;
         break;
     }
   }
@@ -326,6 +364,7 @@
     pc.ontrack = (e) => {
       entry.stream.addTrack(e.track);
       addTile(peerId, 'ผู้เข้าร่วม ' + peerId.slice(0, 4), entry.stream, false);
+      syncRecorderAudio();
     };
 
     pc.onconnectionstatechange = () => {
@@ -386,6 +425,7 @@
     state.pending.delete(peerId);
     if (entry) entry.pc.close();
     removeTile(peerId);
+    syncRecorderAudio();
   }
 
   // ------------------------------------------------------------------
@@ -482,9 +522,15 @@
     }
   }
 
-  function leave(title, message) {
+  async function leave(title, message) {
     if (state.leaving) return;
     state.leaving = true;
+    if (state.recorder) {
+      // ต้องอัปโหลดช่วงสุดท้ายให้เสร็จก่อนตัดการเชื่อมต่อ
+      ui.leaveBtn.disabled = true;
+      ui.status.textContent = 'กำลังบันทึกไฟล์ช่วงสุดท้าย...';
+      await stopRecording().catch(() => {});
+    }
     send({ type: 'leave' });
     if (state.ws) {
       state.ws.onclose = null;
@@ -503,6 +549,7 @@
     ui.endedTitle.textContent = title;
     ui.endedMsg.textContent = message;
     ui.rejoinBtn.hidden = !ROOM_ID_RE.test(roomId);
+    ui.endedRecordingsLink.hidden = !state.isHost;
   }
 
   async function requestWakeLock() {
@@ -514,6 +561,102 @@
   function releaseWakeLock() {
     if (state.wakeLock) state.wakeLock.release().catch(() => {});
     state.wakeLock = null;
+  }
+
+  // ------------------------------------------------------------------
+  // ผู้สร้างห้อง + บันทึกการประชุม
+  // ------------------------------------------------------------------
+  function hostKey() {
+    return 'meeting:host:' + roomId;
+  }
+
+  function initHostToken() {
+    // แอป Android ส่งรหัสผู้สร้างห้องมาทาง #host=... (ส่วนนี้ไม่ถูกส่งไปที่เซิร์ฟเวอร์)
+    const fromLink = new URLSearchParams(location.hash.slice(1)).get('host');
+    if (fromLink) {
+      saveHostToken(fromLink);
+      history.replaceState(null, '', location.pathname + location.search);
+    }
+    try { state.hostToken = state.hostToken || localStorage.getItem(hostKey()); } catch (e) { /* ใช้ไม่ได้ */ }
+    const href = '/recordings/' + encodeURIComponent(roomId);
+    ui.recordingsLink.href = href;
+    ui.endedRecordingsLink.href = href;
+  }
+
+  function saveHostToken(token) {
+    state.hostToken = token;
+    try { localStorage.setItem(hostKey(), token); } catch (e) { /* private mode */ }
+  }
+
+  function applyJoined(msg) {
+    state.selfId = msg.id;
+    if (msg.hostToken) saveHostToken(msg.hostToken); // เราเป็นคนแรกที่เข้าห้องนี้ = ผู้สร้างห้อง
+    state.isHost = !!msg.isHost;
+    state.recordingActive = !!msg.recording;
+    state.recordingAvailable = !!msg.recordingAvailable;
+    if (state.recordingActive && !state.isHost) toast('การประชุมนี้กำลังถูกบันทึก');
+    syncRecordingUi();
+  }
+
+  function syncRecordingUi() {
+    const canRecord = state.isHost && state.recordingAvailable
+      && !!window.MeetingRecorder && window.MeetingRecorder.isSupported();
+    ui.recordBtn.hidden = !canRecord;
+    ui.recordBtn.classList.toggle('recording', !!state.recorder);
+    ui.recordBtn.querySelector('.label').textContent = state.recorder ? 'หยุดบันทึก' : 'บันทึก';
+    ui.recBadge.hidden = !state.recordingActive;
+    ui.recordingsLink.hidden = !state.isHost;
+  }
+
+  function recordingTiles() {
+    return [...state.tiles.entries()].map(([id, t]) => ({
+      video: t.video,
+      label: id === 'local' ? 'ผู้สร้างห้อง' : t.el.querySelector('.name').textContent, // ในไฟล์ไม่ใช้คำว่า "คุณ"
+      showVideo: !t.el.classList.contains('no-video'),
+    }));
+  }
+
+  function allStreams() {
+    return [state.localStream, ...[...state.peers.values()].map((p) => p.stream)];
+  }
+
+  function syncRecorderAudio() {
+    if (state.recorder) state.recorder.syncAudio(allStreams());
+  }
+
+  async function toggleRecording() {
+    ui.recordBtn.disabled = true;
+    try {
+      if (state.recorder) {
+        const result = await stopRecording();
+        toast(result.failedParts
+          ? 'หยุดบันทึกแล้ว แต่มีบางช่วงอัปโหลดไม่สำเร็จ'
+          : 'บันทึกเรียบร้อย ดูได้ที่ "ไฟล์บันทึก"');
+      } else {
+        const recorder = new window.MeetingRecorder({
+          roomId,
+          peerId: state.selfId,
+          hostToken: state.hostToken,
+          getTiles: recordingTiles,
+          onError: toast,
+        });
+        await recorder.start(allStreams());
+        state.recorder = recorder;
+        toast('เริ่มบันทึกแล้ว ผู้เข้าร่วมทุกคนจะเห็นสัญลักษณ์กำลังบันทึก');
+      }
+    } catch (err) {
+      toast(err.message || 'เริ่มบันทึกไม่ได้');
+    } finally {
+      ui.recordBtn.disabled = false;
+      syncRecordingUi();
+    }
+  }
+
+  async function stopRecording() {
+    const recorder = state.recorder;
+    state.recorder = null;
+    syncRecordingUi();
+    return recorder ? recorder.stop() : { failedParts: 0 };
   }
 
   let toastTimer = null;
