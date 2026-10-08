@@ -19,10 +19,7 @@
       <p class="room-code">{{ROOM_ID}}</p>
 
       <div class="stack">
-        <a class="btn btn-primary" href="/room/{{ROOM_ID}}">เข้าร่วมผ่านเบราว์เซอร์</a>
-        <!-- แสดงเฉพาะบน Android: href ถูกสร้างใน script ด้านล่าง -->
-        <a class="btn btn-quiet" id="openApp" hidden
-           data-scheme="{{APP_SCHEME}}" data-package="{{APP_PACKAGE}}">เปิดในแอป</a>
+        <a class="btn btn-primary" id="joinLink" href="/room/{{ROOM_ID}}">เข้าร่วมผ่านเบราว์เซอร์</a>
         <button class="btn btn-quiet" id="copyBtn" type="button">คัดลอกลิงก์เชิญ</button>
       </div>
 
@@ -33,24 +30,23 @@
   <script>
     (function () {
       var roomId = decodeURIComponent(location.pathname.split('/')[2] || '');
-      var openApp = document.getElementById('openApp');
       var note = document.getElementById('note');
+      var joinLink = document.getElementById('joinLink');
 
-      if (/Android/i.test(navigator.userAgent)) {
-        // fallback ต้องเป็น URL เต็ม (http/https) ไม่อย่างนั้น Chrome จะพาไป Play Store แทน
-        var fallback = location.origin + '/join/' + encodeURIComponent(roomId) + '?noapp=1';
-        openApp.href = 'intent://join/' + encodeURIComponent(roomId)
-          + '#Intent;scheme=' + openApp.dataset.scheme
-          + ';package=' + openApp.dataset.package
-          + ';S.browser_fallback_url=' + encodeURIComponent(fallback)
-          + ';end';
-        openApp.hidden = false;
-      }
-
-      if (new URLSearchParams(location.search).has('noapp')) {
-        openApp.hidden = true;
-        note.textContent = 'ไม่พบแอปในเครื่องนี้ เข้าร่วมผ่านเบราว์เซอร์แทนได้เลย';
-      }
+      // เช็กว่าผู้สร้างห้องสร้างห้องนี้ไว้แล้วหรือยัง
+      fetch('/api/rooms/' + encodeURIComponent(roomId) + '/status', { cache: 'no-store' })
+        .then(function (r) { return r.json(); })
+        .then(function (s) {
+          if (!s.exists) {
+            joinLink.hidden = true;
+            note.textContent = 'ไม่พบห้องประชุมนี้ ตรวจสอบลิงก์อีกครั้ง หรือขอลิงก์ใหม่จากผู้สร้างห้อง';
+          } else if (s.participants === 0) {
+            note.textContent = 'ยังไม่มีใครอยู่ในห้อง เข้าไปรอผู้สร้างห้องได้เลย';
+          } else {
+            note.textContent = 'ตอนนี้มีผู้เข้าร่วม ' + s.participants + ' คน';
+          }
+        })
+        .catch(function () { /* เช็กไม่ได้ ให้ลองเข้าห้องตามปกติ */ });
 
       document.getElementById('copyBtn').addEventListener('click', function () {
         var btn = this;

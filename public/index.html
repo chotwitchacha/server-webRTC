@@ -13,7 +13,7 @@
   <main class="page">
     <div class="page-inner">
       <h1>เข้าห้องประชุม</h1>
-      <p class="lead">กรอก Room ID ที่ได้รับ หรือสร้างห้องใหม่แล้วส่งลิงก์ให้คนที่จะคุยด้วย ใช้ได้ทั้งในเบราว์เซอร์และในแอป</p>
+      <p class="lead">กรอก Room ID หรือเปิดลิงก์เชิญที่ได้รับจากผู้สร้างห้อง ห้องประชุมสร้างได้จากแอปบนมือถือเท่านั้น</p>
 
       <form id="joinForm" class="stack" novalidate>
         <label class="field-label" for="roomInput">Room ID</label>
@@ -21,7 +21,6 @@
                autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go">
         <p id="formError" class="error" role="alert"></p>
         <button class="btn btn-primary" type="submit">เข้าร่วม</button>
-        <button class="btn btn-quiet" type="button" id="createBtn">สร้างห้องใหม่</button>
       </form>
     </div>
   </main>
@@ -29,20 +28,8 @@
   <script>
     (function () {
       var ROOM_ID_RE = /^[A-Za-z0-9_-]{1,32}$/;
-      var CHARS = 'abcdefghjkmnpqrstuvwxyz23456789';
       var input = document.getElementById('roomInput');
       var error = document.getElementById('formError');
-
-      function generateRoomId() {
-        var values = new Uint32Array(9);
-        crypto.getRandomValues(values);
-        var id = '';
-        for (var i = 0; i < 9; i++) {
-          if (i > 0 && i % 3 === 0) id += '-';
-          id += CHARS[values[i] % CHARS.length];
-        }
-        return id;
-      }
 
       document.getElementById('joinForm').addEventListener('submit', function (e) {
         e.preventDefault();
@@ -56,9 +43,6 @@
         location.href = '/room/' + encodeURIComponent(roomId);
       });
 
-      document.getElementById('createBtn').addEventListener('click', function () {
-        location.href = '/room/' + generateRoomId();
-      });
     })();
   </script>
 </body>

@@ -37,7 +37,9 @@
     <header class="topbar">
       <span class="room-small" data-room></span>
       <span class="muted" id="status"></span>
+      <span class="rec-badge" id="recBadge" hidden>กำลังบันทึก</span>
       <span class="spacer"></span>
+      <a class="btn btn-quiet" id="recordingsLink" target="_blank" rel="noopener" hidden>ไฟล์บันทึก</a>
       <button class="btn btn-quiet" id="inviteBtn" type="button">เชิญ</button>
     </header>
 
@@ -56,6 +58,11 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M18 3v4h-4M6 21v-4h4"/></svg>
         <span class="label">สลับกล้อง</span>
       </button>
+      <!-- แสดงเฉพาะผู้สร้างห้อง -->
+      <button class="ctrl rec" id="recordBtn" type="button" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.5"/></svg>
+        <span class="label">บันทึก</span>
+      </button>
       <button class="ctrl leave" id="leaveBtn" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 14.5c5-4.7 13-4.7 18 0l-2 3-4-1.2v-2.8a10 10 0 0 0-6 0v2.8L5 17.5z"/></svg>
         <span class="label">ออก</span>
@@ -71,12 +78,14 @@
     <p class="muted" id="endedMsg"></p>
     <div class="stack">
       <button class="btn btn-primary" id="rejoinBtn" type="button">เข้าร่วมอีกครั้ง</button>
+      <a class="btn btn-quiet" id="endedRecordingsLink" hidden>ดูไฟล์บันทึก</a>
       <a class="btn btn-quiet" href="/">กลับหน้าแรก</a>
     </div>
   </section>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+  <script src="/static/recorder.js"></script>
   <script src="/static/meeting.js"></script>
 </body>
 </html>
